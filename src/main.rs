@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 use clap::{App, AppSettings, Arg, SubCommand};
+mod args;
 mod config;
 mod handlers;
 mod utils;
