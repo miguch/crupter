@@ -20,6 +20,4 @@ pub fn md5_handler(matches: &ArgMatches) {
 }
 pub fn aes_handler(matches: &ArgMatches) {
     let args = CipherArgs::from(matches);
-    println!("{:?}", args);
-    println!("{:?}", matches)
 }

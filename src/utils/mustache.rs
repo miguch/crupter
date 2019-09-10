@@ -28,6 +28,7 @@ impl Token {
 
 pub type MustacheExp = Vec<Token>;
 
+#[derive(Debug)]
 pub enum MustacheError {
     CompileError(String),
     DataNotFoundError(String),
@@ -54,7 +55,7 @@ pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, Mu
             let part = exp[last_index..m.start()].to_owned();
             expression.push(Token::Chars(part));
         }
-        let variable = exp[m.start() + 2..m.end() - 2].to_owned();
+        let variable = exp[m.start() + 2..m.end() - 2].trim().to_owned();
         expression.push(Token::Var(variable));
         last_index = m.end();
     }
@@ -71,6 +72,18 @@ pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, Mu
     Ok(expression)
 }
 
-pub fn render(exp: &MustacheExp, data: HashMap<&str, String>) -> Result<String, MustacheError> {
-    unimplemented!()
+pub fn render(exp: &MustacheExp, data: HashMap<&str, &str>) -> Result<String, MustacheError> {
+    let mut result = String::new();
+    for token in exp {
+        result.push_str(match token {
+            Token::Chars(s) => s,
+            Token::Var(name) => {
+                match data.get::<str>(name.as_str()) {
+                    Some(part) => part,
+                    None => return Err(MustacheError::DataNotFoundError(name.to_owned()))
+                }
+            }
+        })
+    }
+    Ok(result)
 }
