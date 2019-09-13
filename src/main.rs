@@ -1,18 +1,24 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate failure;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 mod args;
 mod config;
 mod handlers;
+mod hashes;
 mod utils;
 
-fn main() {
+use std::io::Write;
+
+fn main() -> Result<(), failure::Error> {
     let config = config::init();
     let mut app = App::new("Crupter")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Miguel Chan <i@miguch.com>")
-        .about("A easy tool for file hash and encryption");
+        .about("An easy tool for file hash and encryption");
+    let cpus = num_cpus::get().to_string();
 
     for action in &config.checksums {
         app = app.subcommand(
@@ -25,6 +31,13 @@ fn main() {
                         .help("The file(s) to be encrypted")
                         .takes_value(true)
                         .multiple(true),
+                )
+                .arg(
+                    Arg::with_name("parallels")
+                        .short("j")
+                        .long("parallels")
+                        .default_value(&cpus)
+                        .help("Number of parallel jobs."),
                 ),
         )
     }
@@ -32,6 +45,7 @@ fn main() {
         app = app.subcommand(
             SubCommand::with_name(action.name.as_str())
                 .about(action.help_msg.as_str())
+                .setting(AppSettings::SubcommandRequiredElseHelp)
                 .arg(
                     Arg::with_name("passphrase")
                         .short("p")
@@ -63,6 +77,13 @@ fn main() {
                         .short("d")
                         .long("decrypt")
                         .help("Specify to decrypt file."),
+                )
+                .arg(
+                    Arg::with_name("parallels")
+                        .short("j")
+                        .long("parallels")
+                        .default_value(&cpus)
+                        .help("Number of parallel jobs."),
                 ),
         )
     }
@@ -70,16 +91,13 @@ fn main() {
     let matches = app.get_matches();
 
     // iterate through all actions to find what to do
-    for action in &config.checksums {
+    for action in config.checksums.iter().chain(config.ciphers.iter()) {
         if let Some(matches) = matches.subcommand_matches(&action.name) {
-            (action.handler)(matches);
+            if let Err(error) = (action.handler)(matches) {
+                writeln!(&mut std::io::stderr(), "{}", error).unwrap()
+            }
             break;
         }
     }
-    for action in &config.ciphers {
-        if let Some(matches) = matches.subcommand_matches(&action.name) {
-            (action.handler)(matches);
-            break;
-        }
-    }
+    Ok(())
 }
