@@ -1,7 +1,10 @@
 # crupter
 
-Crupter is a tool for file checksum and encryption, it can be used independently or as a library.
+Crupter is a tool for file checksum and encryption. It mainly wraps [RustCrypto](https://github.com/RustCrypto)
 
 ## build
-We currently only build with nightly Rust.
+If you already have Rust installed, clone the repo and run:
+```shell
+cargo install --path .
+```
 

@@ -1,7 +1,6 @@
 use crate::utils::mustache;
 use clap::ArgMatches;
 use std::convert::TryFrom;
-use std::io::Write;
 
 #[derive(Debug)]
 pub struct HashArgs {

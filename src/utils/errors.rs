@@ -6,8 +6,6 @@ pub enum ReadError {
     OpenFileError { err: std::io::Error },
     #[fail(display = "can not read metadata: {}", err)]
     MetadataError { err: std::io::Error },
-    #[fail(display = "aa")]
-    DataError,
     #[fail(display = "is not file")]
     NotFileError,
 }

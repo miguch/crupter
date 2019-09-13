@@ -14,7 +14,10 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
     if args.filenames.is_empty() {
         let hasher = D::new();
         let result = hasher.from_reader(std::io::stdin().lock())?;
-        result.as_slice().iter().for_each(|byte| print!("{:x}", byte));
+        result
+            .as_slice()
+            .iter()
+            .for_each(|byte| print!("{:x}", byte));
         println!("");
     } else {
         let multi_bar = indicatif::MultiProgress::new();

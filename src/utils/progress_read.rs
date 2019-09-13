@@ -1,5 +1,5 @@
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::io::{Read, Write};
+use indicatif::{ProgressBar, ProgressStyle};
+use std::io::Read;
 
 /// A Read with a progress bar
 pub struct ProgressRead<R: Read> {
