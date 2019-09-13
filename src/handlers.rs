@@ -11,10 +11,11 @@ use std::convert::TryFrom;
 fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
     let args = HashArgs::try_from(matches)?;
     set_num_threads(args.parallels as usize);
-    let output_size = D::output_size();
     if args.filenames.is_empty() {
         let hasher = D::new();
-        hasher.from_reader(std::io::stdin().lock())?;
+        let result = hasher.from_reader(std::io::stdin().lock())?;
+        result.as_slice().iter().for_each(|byte| print!("{:x}", byte));
+        println!("");
     } else {
         let multi_bar = indicatif::MultiProgress::new();
         let pbs: Vec<indicatif::ProgressBar> = (0..args.filenames.len())
@@ -37,7 +38,11 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
         for (file, result) in hash_results {
             match result {
                 Err(err) => println!("[{}] error: {}", file, err),
-                Ok(hash) => println!("[{}]: {:?}", file, hash),
+                Ok(hash) => {
+                    print!("[{}] = ", file);
+                    hash.as_slice().iter().for_each(|byte| print!("{:x}", byte));
+                    println!("");
+                }
             }
         }
         multi_bar_thread.join().unwrap()

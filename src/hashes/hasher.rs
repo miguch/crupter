@@ -7,12 +7,15 @@ use std::path::Path;
 pub trait Hasher {
     type OutputArray;
     /// Produce a hash result from a reader(stdin, file, ...)
-    fn from_reader<R: Read>(&self, reader: R) -> Result<Self::OutputArray, failure::Error>;
+    fn from_reader<R: Read>(self, reader: R) -> Result<Self::OutputArray, failure::Error>;
     fn from_file<P: AsRef<Path>>(
-        &self,
+        self,
         path: P,
         pb: Option<indicatif::ProgressBar>,
-    ) -> Result<Self::OutputArray, failure::Error> {
+    ) -> Result<Self::OutputArray, failure::Error>
+    where
+        Self: std::marker::Sized,
+    {
         let file = std::fs::File::open(&path).map_err(|err| ReadError::OpenFileError { err })?;
         let filename = path.as_ref().file_name().unwrap();
         let meta = file
@@ -39,15 +42,17 @@ pub trait Hasher {
 impl<D: Digest> Hasher for D {
     type OutputArray = GenericArray<u8, D::OutputSize>;
 
-    fn from_reader<R: Read>(&self, mut reader: R) -> Result<Self::OutputArray, failure::Error> {
+    fn from_reader<R: Read>(mut self, mut reader: R) -> Result<Self::OutputArray, failure::Error> {
         // Use a 10mb buffer
         let mut buffer = vec![0; 10485760];
         loop {
             let read_bytes = reader.read(&mut buffer)?;
             if read_bytes == 0 {
                 break;
+            } else {
+                self.input(&buffer[..read_bytes]);
             }
         }
-        Err(ReadError::DataError)?
+        Ok(self.result())
     }
 }
