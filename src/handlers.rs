@@ -1,13 +1,13 @@
 use crate::args::{CipherArgs, HashArgs};
-use crate::ciphers::passphrase;
+use crate::ciphers::{cipher::CrupterCipher, passphrase};
 use crate::hashes::hasher::Hasher;
+use crate::utils::mustache;
 use crate::utils::parallel::set_num_threads;
-use crate::utils::progress_read::ProgressRead;
+use crate::utils::progress_read::{prepare_multi_bar, ProgressRead};
 use clap::ArgMatches;
 use digest::Digest;
-use generic_array::GenericArray;
 use rayon::prelude::*;
-use std::path::PathBuf;
+use std::collections::HashMap;
 use stream_cipher::{NewStreamCipher, SyncStreamCipher};
 
 use std::convert::TryFrom;
@@ -24,14 +24,8 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
             .for_each(|byte| print!("{:x}", byte));
         println!("");
     } else {
-        let multi_bar = indicatif::MultiProgress::new();
-        let pbs: Vec<indicatif::ProgressBar> = (0..args.filenames.len())
-            .map(|_| multi_bar.add(indicatif::ProgressBar::new(0)))
-            .collect();
-        let multi_bar_thread = std::thread::spawn(move || {
-            // use a single thread to handle multi progress bar render
-            multi_bar.join().unwrap();
-        });
+        let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
+
         let hash_outputs: Vec<_> = args
             .filenames
             .par_iter()
@@ -99,14 +93,62 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
     matches: &ArgMatches,
 ) -> Result<(), failure::Error> {
     let args = CipherArgs::try_from(matches)?;
+    set_num_threads(args.parallels as usize);
     let key_len = C::KeySize::to_usize();
     let iv_len = C::NonceSize::to_usize();
     let mut key = vec![0; key_len];
     let iv = vec![78; iv_len];
     passphrase::generate(&args.passphrase, &mut key);
-    for file in args.filenames {
-        let mut cipher = C::new_var(&key, &iv).unwrap();
+
+    let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
+
+    let encrypt_results: Vec<_> = args
+        .filenames
+        .par_iter()
+        .enumerate()
+        .zip(pbs)
+        .map(|((index, file), pb)| {
+            let cipher = C::new_var(&key, &iv).unwrap();
+            (
+                file,
+                match ProgressRead::from_file_path(file, pb) {
+                    Ok(progress_file) => {
+                        if args.decrypt {
+                            cipher.decrypt_file(
+                                progress_file,
+                                &args.output_template,
+                                &args.passphrase,
+                            )
+                        } else {
+                            let render_info = {
+                                let mut map = HashMap::with_capacity(2);
+                                map.insert("index", index.to_string());
+                                map.insert("filename", file.to_string_lossy().into_owned());
+                                map
+                            };
+                            match mustache::render(&args.output_template, &render_info) {
+                                Err(err) => Err(err),
+                                Ok(out_name) => {
+                                    cipher.encrypt_file(progress_file, out_name, &args.passphrase)
+                                }
+                            }
+                        }
+                    }
+                    Err(err) => Err(err),
+                },
+            )
+        })
+        .collect();
+    
+    for (file, result) in encrypt_results {
+        match result {
+            Err(err) => println!("[{:?}] error: {}", file, err),
+            Ok(out_file) => {
+                println!("[{:?}] => {:?} ", file, out_file);
+            }
+        }
     }
+    multi_bar_thread.join().unwrap();
     Ok(())
 }
 

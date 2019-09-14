@@ -29,7 +29,7 @@ impl Token {
 
 pub type MustacheExp = Vec<Token>;
 
-pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, MustacheError> {
+pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, failure::Error> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"\{\{\s*[\w\.]+\s*\}\}").unwrap();
     }
@@ -50,26 +50,24 @@ pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, Mu
     }
     if !allow_no_var {
         if expression.iter().all(Token::is_chars) {
-            return Err(MustacheError::CompileError {
+            Err(MustacheError::CompileError {
                 msg: "expression contains no variable".to_owned(),
-            });
+            })?;
         }
     }
     Ok(expression)
 }
 
-pub fn render(exp: &MustacheExp, data: HashMap<&str, &str>) -> Result<String, MustacheError> {
+pub fn render(exp: &MustacheExp, data: &HashMap<&str, String>) -> Result<String, failure::Error> {
     let mut result = String::new();
     for token in exp {
         result.push_str(match token {
             Token::Chars(s) => s,
             Token::Var(name) => match data.get::<str>(name.as_str()) {
                 Some(part) => part,
-                None => {
-                    return Err(MustacheError::DataNotFoundError {
-                        missing_field: name.to_owned(),
-                    })
-                }
+                None => Err(MustacheError::DataNotFoundError {
+                    missing_field: name.to_owned(),
+                })?,
             },
         })
     }

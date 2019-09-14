@@ -2,6 +2,18 @@ use crate::utils::errors::ReadError;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::Read;
 
+pub fn prepare_multi_bar(bars: usize) -> (Vec<ProgressBar>, std::thread::JoinHandle<()>) {
+    let multi_bar = indicatif::MultiProgress::new();
+    let pbs: Vec<indicatif::ProgressBar> = (0..bars)
+        .map(|_| multi_bar.add(indicatif::ProgressBar::new(0)))
+        .collect();
+    let multi_bar_thread = std::thread::spawn(move || {
+        // use a single thread to handle multi progress bar render
+        multi_bar.join().unwrap();
+    });
+    (pbs, multi_bar_thread)
+}
+
 /// A Read with a progress bar
 pub struct ProgressRead<R: Read> {
     /// Underlying Read Object
