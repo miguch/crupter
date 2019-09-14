@@ -48,10 +48,14 @@ pub fn init() -> Config {
         .iter()
         .map(|(n, handler)| Command::new_checksum(n, *handler))
         .collect(),
-        ciphers: [(
-            "aes",
-            handlers::aes_handler as fn(&ArgMatches) -> Result<(), failure::Error>,
-        )]
+        ciphers: [
+            (
+                "aes-128",
+                handlers::aes_128_handler as fn(&ArgMatches) -> Result<(), failure::Error>,
+            ),
+            ("aes-192", handlers::aes_192_handler),
+            ("aes-256", handlers::aes_256_handler),
+        ]
         .iter()
         .map(|(n, handler)| Command::new_cipher(n, *handler))
         .collect(),

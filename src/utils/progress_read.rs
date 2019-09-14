@@ -1,3 +1,4 @@
+use crate::utils::errors::ReadError;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::Read;
 
@@ -34,6 +35,30 @@ impl<R: Read> ProgressRead<R> {
     }
 }
 
+impl ProgressRead<std::io::BufReader<std::fs::File>> {
+    pub fn from_file_path<P: AsRef<std::path::Path>>(
+        path: P,
+        pb: ProgressBar,
+    ) -> Result<Self, failure::Error> {
+        let file = std::fs::File::open(&path).map_err(|err| ReadError::OpenFileError { err })?;
+        let filename = path.as_ref().file_name().unwrap();
+        let meta = file
+            .metadata()
+            .map_err(|err| ReadError::MetadataError { err })?;
+        if !meta.is_file() {
+            Err(ReadError::NotFileError)?;
+        }
+        let file_size = meta.len();
+        let buf_file = std::io::BufReader::new(file);
+        Ok(ProgressRead::new(
+            buf_file,
+            file_size,
+            filename.to_str().unwrap(),
+            pb,
+        ))
+    }
+}
+
 impl<R: Read> Read for ProgressRead<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         let read_size = self.inner.read(buf).map_err(|err| {
@@ -44,7 +69,7 @@ impl<R: Read> Read for ProgressRead<R> {
         if !self.finished {
             if new_position >= self.bytes {
                 self.finished = true;
-                self.bar.finish();
+                self.bar.finish_with_message("Done.");
             } else {
                 self.bar.set_position(new_position);
             }

@@ -8,6 +8,12 @@ pub enum ReadError {
     MetadataError { err: std::io::Error },
     #[fail(display = "is not file")]
     NotFileError,
+    #[fail(display = "fail to create directory {}: {}", dir, err)]
+    CreateDirError { dir: String, err: std::io::Error },
+    #[fail(display = "fail to find home directory")]
+    NoHomeDir,
+    #[fail(display = "fail to read directory {}: {}", dir, err)]
+    ReadDirError { dir: String, err: std::io::Error },
 }
 
 #[derive(Debug, Fail)]

@@ -1,10 +1,12 @@
+use crate::utils::errors::ReadError;
 use crate::utils::mustache;
 use clap::ArgMatches;
 use std::convert::TryFrom;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct HashArgs {
-    pub filenames: Vec<String>,
+    pub filenames: Vec<PathBuf>,
     pub parallels: u32,
 }
 
@@ -12,7 +14,7 @@ impl TryFrom<&ArgMatches<'_>> for HashArgs {
     type Error = failure::Error;
     fn try_from(matches: &ArgMatches) -> Result<Self, Self::Error> {
         let filenames = if let Some(files) = matches.values_of("file") {
-            files.map(String::from).collect()
+            files.map(PathBuf::from).collect()
         } else {
             vec![]
         };
@@ -27,7 +29,7 @@ impl TryFrom<&ArgMatches<'_>> for HashArgs {
 #[derive(Debug)]
 pub struct CipherArgs {
     pub passphrase: String,
-    pub filenames: Vec<String>,
+    pub filenames: Vec<PathBuf>,
     pub output_template: mustache::MustacheExp,
     pub decrypt: bool,
     pub parallels: u32,
@@ -37,20 +39,57 @@ impl TryFrom<&ArgMatches<'_>> for CipherArgs {
     type Error = failure::Error;
     fn try_from(matches: &ArgMatches) -> Result<Self, Self::Error> {
         let passphrase = matches.value_of("passphrase").map(String::from).unwrap();
-        let template_str = matches.value_of("output").unwrap();
-        let output_template = mustache::compile_mustache(template_str, false)?;
+        let decrypt = matches.is_present("decrypt");
+        let mut template_str = matches
+            .value_of("output")
+            .map(|tpl| {
+                // if empty set default value
+                match tpl {
+                    "" if decrypt => "output/{{filename}}",
+                    "" if !decrypt => "crypted/{{index}}.ci",
+                    _ => tpl,
+                }
+            })
+            .unwrap()
+            .to_owned();
+        if &template_str[0..2] == "~/" {
+            template_str.replace_range(
+                0..1,
+                dirs::home_dir()
+                    .ok_or(ReadError::NoHomeDir)?
+                    .to_str()
+                    .unwrap(),
+            );
+        }
+        // Check output directory, create if not exist
+        let output_dir = std::path::Path::new(&template_str)
+            .parent()
+            .unwrap_or(std::path::Path::new(&template_str));
+        if output_dir.as_os_str() != "" && !output_dir.exists() {
+            std::fs::create_dir(output_dir).map_err(|err| ReadError::CreateDirError {
+                err,
+                dir: output_dir.to_string_lossy().to_string(),
+            })?;
+            println!("Created directory: {}", output_dir.display());
+        }
+        let output_template = mustache::compile_mustache(&template_str, false)?;
         let parallels = matches.value_of("parallels").unwrap().parse::<u32>()?;
-        mustache::render(&output_template, std::collections::HashMap::new())?;
         let filenames = if let Some(files) = matches.values_of("file") {
-            files.map(String::from).collect()
+            files.map(PathBuf::from).collect()
         } else {
-            vec![]
+            std::fs::read_dir(".")
+                .map_err(|err| ReadError::ReadDirError {
+                    err,
+                    dir: ".".to_owned(),
+                })?
+                .map(|entry| Ok(entry?.path()))
+                .collect::<Result<Vec<_>, std::io::Error>>()?
         };
         Ok(Self {
             passphrase,
             filenames,
             output_template,
-            decrypt: matches.is_present("decrypt"),
+            decrypt,
             parallels,
         })
     }

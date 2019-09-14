@@ -2,9 +2,12 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate failure;
+#[macro_use]
+extern crate hex_literal;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 mod args;
+mod ciphers;
 mod config;
 mod handlers;
 mod hashes;
@@ -45,7 +48,7 @@ fn main() -> Result<(), failure::Error> {
         app = app.subcommand(
             SubCommand::with_name(action.name.as_str())
                 .about(action.help_msg.as_str())
-                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .setting(AppSettings::ArgRequiredElseHelp)
                 .arg(
                     Arg::with_name("passphrase")
                         .short("p")
@@ -68,9 +71,10 @@ fn main() -> Result<(), failure::Error> {
                         .short("o")
                         .long("output")
                         .value_name("PATH")
-                        .help("The output name of encrypted file. \nSupported fields: [index, filename]\n")
+                        .help("The output name of en(de)crypted file. \nSupported fields: [index, filename]\n[ default:\n\tencrypt: crypted/{{index}}.ci\n\tdecrypt: output/{{filename}}\n]")
                         .takes_value(true)
-                        .default_value("crypted/{{index}}.ci"),
+                        .default_value("")
+                        .hide_default_value(true)
                 )
                 .arg(
                     Arg::with_name("decrypt")
@@ -84,7 +88,7 @@ fn main() -> Result<(), failure::Error> {
                         .long("parallels")
                         .default_value(&cpus)
                         .help("Number of parallel jobs."),
-                ),
+                )
         )
     }
 
