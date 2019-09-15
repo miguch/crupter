@@ -1,11 +1,33 @@
 use digest::Digest;
+use generic_array::typenum::Unsigned;
+use generic_array::GenericArray;
+use rand::{thread_rng, Rng};
 use scrypt::{scrypt, ScryptParams};
+use stream_cipher::NewStreamCipher;
 
 pub const HASHED_PWD_LENGTH: usize = 64;
 
 pub fn validate(received: &str, stored: &[u8]) -> bool {
     let hashed_pwd = get_hashed_pwd(received);
     hashed_pwd.iter().zip(stored.iter()).all(|(a, b)| a == b)
+}
+
+pub fn generate_bytes(output: &mut [u8]) {
+    let mut rng = thread_rng();
+    output.iter_mut().for_each(|byte| *byte = rng.gen::<u8>());
+}
+
+pub fn generate_var<S: NewStreamCipher>(
+) -> (GenericArray<u8, S::KeySize>, GenericArray<u8, S::NonceSize>) {
+    let mut rng = thread_rng();
+    let key_len = S::KeySize::to_usize();
+    let iv_len = S::NonceSize::to_usize();
+    let mut key_iv = vec![0; key_len + iv_len];
+    generate_bytes(&mut key_iv);
+    (
+        GenericArray::clone_from_slice(&key_iv[..key_len]),
+        GenericArray::clone_from_slice(&key_iv[..iv_len]),
+    )
 }
 
 pub fn get_hashed_pwd(password: &str) -> Vec<u8> {

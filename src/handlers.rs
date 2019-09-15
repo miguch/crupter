@@ -96,9 +96,10 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
     set_num_threads(args.parallels as usize);
     let key_len = C::KeySize::to_usize();
     let iv_len = C::NonceSize::to_usize();
-    let mut key = vec![0; key_len];
-    let iv = vec![78; iv_len];
-    passphrase::generate(&args.passphrase, &mut key);
+    let mut key_iv = vec![0; key_len + iv_len];
+    passphrase::generate(&args.passphrase, &mut key_iv);
+    let key = &key_iv[..key_len];
+    let iv = &key_iv[key_len..];
 
     let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
 
@@ -120,17 +121,21 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
                                 &args.passphrase,
                             )
                         } else {
+                            let filename = file.file_name().unwrap().to_string_lossy().into_owned();
                             let render_info = {
                                 let mut map = HashMap::with_capacity(2);
                                 map.insert("index", index.to_string());
-                                map.insert("filename", file.to_string_lossy().into_owned());
+                                map.insert("filename", filename.clone());
                                 map
                             };
                             match mustache::render(&args.output_template, &render_info) {
                                 Err(err) => Err(err),
-                                Ok(out_name) => {
-                                    cipher.encrypt_file(progress_file, out_name, &args.passphrase)
-                                }
+                                Ok(out_name) => cipher.encrypt_file(
+                                    progress_file,
+                                    &filename,
+                                    out_name,
+                                    &args.passphrase,
+                                ),
                             }
                         }
                     }
@@ -139,7 +144,7 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
             )
         })
         .collect();
-    
+
     for (file, result) in encrypt_results {
         match result {
             Err(err) => println!("[{:?}] error: {}", file, err),
