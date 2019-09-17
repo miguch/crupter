@@ -42,6 +42,7 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
             })
             .collect();
 
+        multi_bar_thread.join().unwrap();
         for (file, result) in hash_outputs {
             match result {
                 Err(err) => println!("[{:?}] error: {}", file, err),
@@ -52,7 +53,6 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
                 }
             }
         }
-        multi_bar_thread.join().unwrap()
     }
     Ok(())
 }
@@ -145,6 +145,7 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
         })
         .collect();
 
+    multi_bar_thread.join().unwrap();
     for (file, result) in encrypt_results {
         match result {
             Err(err) => println!("[{:?}] error: {}", file, err),
@@ -153,7 +154,6 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
             }
         }
     }
-    multi_bar_thread.join().unwrap();
     Ok(())
 }
 

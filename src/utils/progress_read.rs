@@ -89,3 +89,12 @@ impl<R: Read> Read for ProgressRead<R> {
         Ok(read_size)
     }
 }
+
+impl<R: Read> Drop for ProgressRead<R> {
+    fn drop(&mut self) {
+        if !self.finished {
+            // error happened else where, clear progress bar here
+            self.bar.finish_and_clear();
+        }
+    }
+}
