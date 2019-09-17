@@ -19,7 +19,7 @@ pub fn generate_bytes(output: &mut [u8]) {
 
 pub fn generate_var<S: NewStreamCipher>(
 ) -> (GenericArray<u8, S::KeySize>, GenericArray<u8, S::NonceSize>) {
-    let mut rng = thread_rng();
+    let _rng = thread_rng();
     let key_len = S::KeySize::to_usize();
     let iv_len = S::NonceSize::to_usize();
     let mut key_iv = vec![0; key_len + iv_len];

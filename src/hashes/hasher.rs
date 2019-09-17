@@ -1,8 +1,8 @@
-use crate::utils::{errors::ReadError, progress_read::ProgressRead};
+
 use digest::Digest;
 use generic_array::GenericArray;
 use std::io::Read;
-use std::path::Path;
+
 
 pub trait Hasher {
     type OutputArray;

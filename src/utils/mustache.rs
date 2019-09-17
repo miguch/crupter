@@ -12,6 +12,7 @@ pub enum Token {
     Var(String),
 }
 
+#[allow(dead_code)]
 impl Token {
     pub fn is_chars(&self) -> bool {
         match *self {
