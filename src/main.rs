@@ -39,6 +39,12 @@ fn main() -> Result<(), failure::Error> {
                         .long("parallels")
                         .default_value(&cpus)
                         .help("Number of parallel jobs."),
+                )
+                .arg(
+                    Arg::with_name("silent")
+                        .short("s")
+                        .long("silent")
+                        .help("specify to hide progress bar"),
                 ),
         )
     }
@@ -86,6 +92,12 @@ fn main() -> Result<(), failure::Error> {
                         .long("parallels")
                         .default_value(&cpus)
                         .help("Number of parallel jobs."),
+                )
+                .arg(
+                    Arg::with_name("silent")
+                        .short("s")
+                        .long("silent")
+                        .help("specify to hide progress bar"),
                 )
         )
     }

@@ -25,10 +25,12 @@ pub struct ProgressRead<R: Read> {
     /// Indicate whether the read has finished,
     /// progress bar can only finish once
     finished: bool,
+    // no progress bar if true
+    silent: bool,
 }
 
 impl<R: Read> ProgressRead<R> {
-    pub fn new(inner: R, bytes: u64, name: &str, pb: ProgressBar) -> Self {
+    pub fn new(inner: R, bytes: u64, name: &str, pb: ProgressBar, silent: bool) -> Self {
         pb.set_prefix(name);
         pb.set_length(bytes);
         let template = name.to_owned()
@@ -43,6 +45,7 @@ impl<R: Read> ProgressRead<R> {
             bytes,
             bar: pb,
             finished: false,
+            silent,
         }
     }
 }
@@ -51,7 +54,11 @@ impl ProgressRead<std::io::BufReader<std::fs::File>> {
     pub fn from_file_path<P: AsRef<std::path::Path>>(
         path: P,
         pb: ProgressBar,
+        silent: bool,
     ) -> Result<Self, failure::Error> {
+        if silent {
+            pb.finish_and_clear();
+        }
         let file = std::fs::File::open(&path).map_err(|err| ReadError::OpenFileError { err })?;
         let filename = path.as_ref().file_name().unwrap();
         let meta = file
@@ -67,6 +74,7 @@ impl ProgressRead<std::io::BufReader<std::fs::File>> {
             file_size,
             filename.to_str().unwrap(),
             pb,
+            silent,
         ))
     }
 }
@@ -74,11 +82,13 @@ impl ProgressRead<std::io::BufReader<std::fs::File>> {
 impl<R: Read> Read for ProgressRead<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         let read_size = self.inner.read(buf).map_err(|err| {
-            self.bar.finish_at_current_pos();
+            if !self.silent {
+                self.bar.finish_at_current_pos();
+            }
             err
         })?;
         let new_position = self.bar.position() + read_size as u64;
-        if !self.finished {
+        if !self.finished && !self.silent {
             if new_position >= self.bytes {
                 self.finished = true;
                 self.bar.finish_with_message("Done.");
@@ -92,7 +102,7 @@ impl<R: Read> Read for ProgressRead<R> {
 
 impl<R: Read> Drop for ProgressRead<R> {
     fn drop(&mut self) {
-        if !self.finished {
+        if !self.finished && !self.silent {
             // error happened else where, clear progress bar here
             self.bar.finish_and_clear();
         }

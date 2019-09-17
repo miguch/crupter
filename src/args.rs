@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub struct HashArgs {
     pub filenames: Vec<PathBuf>,
     pub parallels: u32,
+    pub silent: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for HashArgs {
@@ -22,6 +23,7 @@ impl TryFrom<&ArgMatches<'_>> for HashArgs {
         Ok(Self {
             filenames,
             parallels,
+            silent: matches.is_present("silent"),
         })
     }
 }
@@ -33,6 +35,7 @@ pub struct CipherArgs {
     pub output_template: mustache::MustacheExp,
     pub decrypt: bool,
     pub parallels: u32,
+    pub silent: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for CipherArgs {
@@ -91,6 +94,7 @@ impl TryFrom<&ArgMatches<'_>> for CipherArgs {
             output_template,
             decrypt,
             parallels,
+            silent: matches.is_present("silent"),
         })
     }
 }

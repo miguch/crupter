@@ -1,8 +1,6 @@
-
 use digest::Digest;
 use generic_array::GenericArray;
 use std::io::Read;
-
 
 pub trait Hasher {
     type OutputArray;

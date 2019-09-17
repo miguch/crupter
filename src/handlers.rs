@@ -34,7 +34,7 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
                 let hasher = D::new();
                 (
                     file,
-                    match ProgressRead::from_file_path(file, pb) {
+                    match ProgressRead::from_file_path(file, pb, args.silent) {
                         Ok(progress_file) => hasher.from_reader(progress_file),
                         Err(err) => Err(err),
                     },
@@ -103,6 +103,8 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
 
     let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
 
+    let count = std::sync::Mutex::new(0);
+
     let encrypt_results: Vec<_> = args
         .filenames
         .par_iter()
@@ -112,8 +114,13 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
             let cipher = C::new_var(&key, &iv).unwrap();
             (
                 file,
-                match ProgressRead::from_file_path(file, pb) {
+                match ProgressRead::from_file_path(file, pb, args.silent) {
                     Ok(progress_file) => {
+                        if args.silent {
+                            let mut count = count.lock().unwrap();
+                            *count += 1;
+                            println!("[{}] {:?}", count, file);
+                        }
                         if args.decrypt {
                             cipher.decrypt_file(
                                 progress_file,
