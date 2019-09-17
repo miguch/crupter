@@ -1,20 +1,19 @@
 name: Crupter Build on Push
 # This workflow is triggered on pushes to the repository.
 on: [push]
-runs-on: 
-strategy:
-  matrix:
-    os: [windows-latest, macOS-latest, ubuntu-18.04]
 
 jobs:
   testBuildStatus:
     name: Test Build Status
     runs-on: ${{ matrix.os }}
-  steps:
+    strategy:
+      matrix:
+        os: [windows-latest, macOS-latest, ubuntu-18.04]
+    steps:
     - name: Checkout
-      uses: actions/checkout@master
+      uses: actions/checkout@1
       with:
         fetch-depth: 1  
     - name: Build
-      run: cargo build --release
+      run: cargo build --release --verbose
 
