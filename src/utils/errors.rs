@@ -23,3 +23,9 @@ pub enum MustacheError {
     #[fail(display = "mustache render cannot find field: {}", missing_field)]
     DataNotFoundError { missing_field: String },
 }
+
+#[derive(Debug, Fail)]
+pub enum CipherError {
+    #[fail(display = "password validation fail")]
+    PasswordError,
+}
