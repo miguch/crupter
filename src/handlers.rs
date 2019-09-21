@@ -165,13 +165,13 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
 }
 
 pub fn aes_128_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aesni::Aes128Ctr>(matches)
+    cipher_handler::<aes_ctr::Aes128Ctr>(matches)
 }
 
 pub fn aes_192_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aesni::Aes192Ctr>(matches)
+    cipher_handler::<aes_ctr::Aes192Ctr>(matches)
 }
 
 pub fn aes_256_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aesni::Aes256Ctr>(matches)
+    cipher_handler::<aes_ctr::Aes256Ctr>(matches)
 }
