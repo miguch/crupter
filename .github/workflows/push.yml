@@ -10,10 +10,16 @@ jobs:
       matrix:
         os: [windows-latest, macOS-latest, ubuntu-18.04]
     steps:
-    - name: Checkout
-      uses: actions/checkout@1
+    - uses: actions/checkout@v1
       with:
-        fetch-depth: 1  
-    - name: Build
-      run: cargo build --release --verbose
+        fetch-depth: 1
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release --all-features --verbose
 
