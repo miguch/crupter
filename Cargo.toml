@@ -1,8 +1,12 @@
 [package]
 name = "crupter"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Miguel Chan <vvchan@outlook.com>"]
 edition = "2018"
+license = "MIT"
+description = "Crupter is a tool for file checksum and encryption."
+homepage = "https://github.com/miguch/crupter"
+repository = "https://github.com/miguch/crupter"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
