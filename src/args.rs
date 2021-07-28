@@ -36,6 +36,7 @@ pub struct CipherArgs {
     pub decrypt: bool,
     pub parallels: u32,
     pub silent: bool,
+    pub list_name: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for CipherArgs {
@@ -68,7 +69,7 @@ impl TryFrom<&ArgMatches<'_>> for CipherArgs {
         let output_dir = std::path::Path::new(&template_str)
             .parent()
             .unwrap_or(std::path::Path::new(&template_str));
-        if output_dir.as_os_str() != "" && !output_dir.exists() {
+        if output_dir.as_os_str() != "" && !output_dir.exists() && !matches.is_present("list-name") {
             std::fs::create_dir(output_dir).map_err(|err| ReadError::CreateDirError {
                 err,
                 dir: output_dir.to_string_lossy().to_string(),
@@ -88,13 +89,15 @@ impl TryFrom<&ArgMatches<'_>> for CipherArgs {
                 .map(|entry| Ok(entry?.path()))
                 .collect::<Result<Vec<_>, std::io::Error>>()?
         };
+        let list_name = matches.is_present("list-name");
         Ok(Self {
             passphrase,
             filenames,
             output_template,
             decrypt,
             parallels,
-            silent: matches.is_present("silent"),
+            silent: matches.is_present("silent") || (decrypt && list_name),
+            list_name,
         })
     }
 }

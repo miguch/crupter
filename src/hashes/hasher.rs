@@ -25,3 +25,25 @@ impl<D: Digest> Hasher for D {
         Ok(self.result())
     }
 }
+
+pub trait PDHasher {
+    /// Consume buffer
+    fn consume(&mut self, buf: &[u8]);
+    /// output result
+    fn produce(self: Box<Self>) -> Result<String, failure::Error>;
+}
+
+impl<D: Digest> PDHasher for D {
+    fn consume(&mut self, buf: &[u8]) {
+        self.input(buf)
+    }
+    fn produce(self: Box<Self>) -> Result<String, failure::Error> {
+        use std::fmt::Write;
+        let hash = self.result();
+        let mut result = String::new();
+        for byte in hash.as_slice() {
+            write!(&mut result, "{:x}", byte)?;
+        }
+        Ok(result)
+    }
+}

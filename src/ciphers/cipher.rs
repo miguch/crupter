@@ -5,7 +5,7 @@ use generic_array::typenum::Unsigned;
 use mustache::MustacheExp;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use stream_cipher::{NewStreamCipher, SyncStreamCipher};
+use ofb::cipher::{NewCipher, StreamCipher};
 
 pub trait CrupterCipher {
     fn apply<R: Read, W: Write>(&mut self, reader: R, writer: W) -> Result<usize, failure::Error>;
@@ -21,10 +21,11 @@ pub trait CrupterCipher {
         file_reader: R,
         out_name_template: &MustacheExp,
         password: &str,
+        name_only: bool,
     ) -> Result<PathBuf, failure::Error>;
 }
 
-impl<S: NewStreamCipher + SyncStreamCipher> CrupterCipher for S {
+impl<S: NewCipher + StreamCipher> CrupterCipher for S {
     fn apply<R: Read, W: Write>(
         &mut self,
         mut reader: R,
@@ -60,7 +61,7 @@ impl<S: NewStreamCipher + SyncStreamCipher> CrupterCipher for S {
 
         let (mut key, mut iv) = passphrase::generate_var::<Self>();
         // Use a random cipher to encrypt file
-        let mut file_cipher = Self::new_var(&key, &iv).unwrap();
+        let mut file_cipher = Self::new_from_slices(&key, &iv).unwrap();
         self.apply_keystream(&mut key);
         self.apply_keystream(&mut iv);
         // Save random cipher key and iv
@@ -85,6 +86,7 @@ impl<S: NewStreamCipher + SyncStreamCipher> CrupterCipher for S {
         mut file_reader: R,
         out_name_template: &MustacheExp,
         password: &str,
+        name_only: bool,
     ) -> Result<PathBuf, failure::Error> {
         // Validate with passphrase hash
         let mut hashed_pwd = vec![0; passphrase::HASHED_PWD_LENGTH];
@@ -99,7 +101,7 @@ impl<S: NewStreamCipher + SyncStreamCipher> CrupterCipher for S {
         let mut key_iv = vec![0; key_len + iv_len];
         file_reader.read_exact(&mut key_iv)?;
         self.apply_keystream(&mut key_iv);
-        let mut file_cipher = Self::new_var(&key_iv[..key_len], &key_iv[key_len..]).unwrap();
+        let mut file_cipher = Self::new_from_slices(&key_iv[..key_len], &key_iv[key_len..]).unwrap();
         // Get filename
         let mut filename_len_buf = [0; 4];
         file_reader.read_exact(&mut filename_len_buf)?;
@@ -108,9 +110,13 @@ impl<S: NewStreamCipher + SyncStreamCipher> CrupterCipher for S {
         let mut filename_buf = vec![0; filename_len];
         file_reader.read_exact(&mut filename_buf)?;
         file_cipher.apply_keystream(&mut filename_buf);
+        let origin_filename = std::str::from_utf8(&filename_buf)?.to_owned();
+        if name_only {
+            return Ok(PathBuf::from(origin_filename));
+        }
         let render_map = {
             let mut map = std::collections::HashMap::new();
-            map.insert("filename", std::str::from_utf8(&filename_buf)?.to_owned());
+            map.insert("filename", origin_filename);
             map
         };
         let output_name = mustache::render(out_name_template, &render_map)?;

@@ -1,9 +1,9 @@
 use digest::Digest;
-use generic_array::typenum::Unsigned;
-use generic_array::GenericArray;
+use generic_array_cipher::typenum::Unsigned;
+use generic_array_cipher::GenericArray;
 use rand::{thread_rng, Rng};
 use scrypt::{scrypt, ScryptParams};
-use stream_cipher::NewStreamCipher;
+use ofb::cipher::{NewCipher};
 
 pub const HASHED_PWD_LENGTH: usize = 64;
 
@@ -17,7 +17,7 @@ pub fn generate_bytes(output: &mut [u8]) {
     output.iter_mut().for_each(|byte| *byte = rng.gen::<u8>());
 }
 
-pub fn generate_var<S: NewStreamCipher>(
+pub fn generate_var<S: NewCipher>(
 ) -> (GenericArray<u8, S::KeySize>, GenericArray<u8, S::NonceSize>) {
     let _rng = thread_rng();
     let key_len = S::KeySize::to_usize();

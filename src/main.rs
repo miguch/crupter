@@ -3,7 +3,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate hex_literal;
 
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, crate_version, AppSettings, Arg, SubCommand};
 mod args;
 mod ciphers;
 mod config;
@@ -18,7 +18,8 @@ fn main() -> Result<(), failure::Error> {
     let mut app = App::new("Crupter")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Miguel Chan <i@miguch.com>")
-        .about("An easy tool for file hash and encryption");
+        .about("An easy tool for file hash and encryption")
+        .version(crate_version!());
     let cpus = num_cpus::get().to_string();
 
     for action in &config.checksums {
@@ -98,6 +99,12 @@ fn main() -> Result<(), failure::Error> {
                         .short("s")
                         .long("silent")
                         .help("specify to hide progress bar"),
+                )
+                .arg(
+                    Arg::with_name("list-name")
+                        .short("l")
+                        .long("list-name")
+                        .help("only show file name when decrypting")
                 )
         )
     }

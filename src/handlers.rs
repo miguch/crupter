@@ -6,9 +6,9 @@ use crate::utils::parallel::set_num_threads;
 use crate::utils::progress_read::{prepare_multi_bar, ProgressRead};
 use clap::ArgMatches;
 use digest::Digest;
+use ofb::cipher::{NewCipher, StreamCipher};
 use rayon::prelude::*;
 use std::collections::HashMap;
-use stream_cipher::{NewStreamCipher, SyncStreamCipher};
 
 use std::convert::TryFrom;
 
@@ -24,7 +24,7 @@ fn hash_handler<D: Digest>(matches: &ArgMatches) -> Result<(), failure::Error> {
             .for_each(|byte| print!("{:x}", byte));
         println!("");
     } else {
-        let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
+        let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len(), args.silent);
 
         let hash_outputs: Vec<_> = args
             .filenames
@@ -89,7 +89,7 @@ pub fn md5_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
 }
 
 use generic_array::typenum::Unsigned;
-fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
+fn cipher_handler<C: NewCipher + StreamCipher>(
     matches: &ArgMatches,
 ) -> Result<(), failure::Error> {
     let args = CipherArgs::try_from(matches)?;
@@ -101,7 +101,7 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
     let key = &key_iv[..key_len];
     let iv = &key_iv[key_len..];
 
-    let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len());
+    let (pbs, multi_bar_thread) = prepare_multi_bar(args.filenames.len(), args.silent);
 
     let count = std::sync::Mutex::new(0);
 
@@ -111,7 +111,7 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
         .enumerate()
         .zip(pbs)
         .map(|((index, file), pb)| {
-            let cipher = C::new_var(&key, &iv).unwrap();
+            let cipher = C::new_from_slices(&key, &iv).unwrap();
             (
                 file,
                 match ProgressRead::from_file_path(file, pb, args.silent) {
@@ -126,6 +126,7 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
                                 progress_file,
                                 &args.output_template,
                                 &args.passphrase,
+                                args.list_name,
                             )
                         } else {
                             let filename = file.file_name().unwrap().to_string_lossy().into_owned();
@@ -165,13 +166,13 @@ fn cipher_handler<C: NewStreamCipher + SyncStreamCipher>(
 }
 
 pub fn aes_128_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aes_ctr::Aes128Ctr>(matches)
+    cipher_handler::<aes::Aes128Ctr>(matches)
 }
 
 pub fn aes_192_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aes_ctr::Aes192Ctr>(matches)
+    cipher_handler::<aes::Aes192Ctr>(matches)
 }
 
 pub fn aes_256_handler(matches: &ArgMatches) -> Result<(), failure::Error> {
-    cipher_handler::<aes_ctr::Aes256Ctr>(matches)
+    cipher_handler::<aes::Aes256Ctr>(matches)
 }

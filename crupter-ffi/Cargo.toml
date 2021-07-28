@@ -1,0 +1,17 @@
+[package]
+name = "crupter-ffi"
+version = "0.1.0"
+authors = ["Miguel Chan <vvchan@outlook.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+crupter = { path = ".." }
+lazy_static = "1.4.0"
+rayon = "1.1"
+libc = "0.2"
+failure = "0.1.5"
