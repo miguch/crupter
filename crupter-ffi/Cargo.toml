@@ -2,16 +2,15 @@
 name = "crupter-ffi"
 version = "0.1.0"
 authors = ["Miguel Chan <vvchan@outlook.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
 
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 crupter = { path = ".." }
-lazy_static = "1.4.0"
-rayon = "1.1"
+rayon = "1"
 libc = "0.2"
-failure = "0.1.5"
+anyhow = "1"
+thiserror = "2"
+digest = "0.10"

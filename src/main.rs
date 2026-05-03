@@ -1,124 +1,89 @@
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate hex_literal;
-
-use clap::{App, crate_version, AppSettings, Arg, SubCommand};
 mod args;
 mod ciphers;
-mod config;
 mod handlers;
 mod hashes;
 mod utils;
 
+use anyhow::Result;
+use clap::{Parser, Subcommand};
 use std::io::Write;
 
-fn main() -> Result<(), failure::Error> {
-    let config = config::init();
-    let mut app = App::new("Crupter")
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .author("Miguel Chan <i@miguch.com>")
-        .about("An easy tool for file hash and encryption")
-        .version(crate_version!());
-    let cpus = num_cpus::get().to_string();
+use args::{CipherArgs, HashArgs};
 
-    for action in &config.checksums {
-        app = app.subcommand(
-            SubCommand::with_name(action.name.as_str())
-                .about(action.help_msg.as_str())
-                .arg(
-                    Arg::with_name("file")
-                        .index(1)
-                        .value_name("FILE")
-                        .help("The file(s) to be encrypted")
-                        .takes_value(true)
-                        .multiple(true),
-                )
-                .arg(
-                    Arg::with_name("parallels")
-                        .short("j")
-                        .long("parallels")
-                        .default_value(&cpus)
-                        .help("Number of parallel jobs."),
-                )
-                .arg(
-                    Arg::with_name("silent")
-                        .short("s")
-                        .long("silent")
-                        .help("specify to hide progress bar"),
-                ),
-        )
-    }
-    for action in &config.ciphers {
-        app = app.subcommand(
-            SubCommand::with_name(action.name.as_str())
-                .about(action.help_msg.as_str())
-                .setting(AppSettings::ArgRequiredElseHelp)
-                .arg(
-                    Arg::with_name("passphrase")
-                        .short("p")
-                        .long("passphrase")
-                        .value_name("STRING")
-                        .help("The passphrase for file encryption")
-                        .takes_value(true)
-                        .required(true),
-                )
-                .arg(
-                    Arg::with_name("file")
-                        .index(1)
-                        .value_name("FILE")
-                        .help("The file(s) to be encrypted")
-                        .takes_value(true)
-                        .multiple(true),
-                )
-                .arg(
-                    Arg::with_name("output")
-                        .short("o")
-                        .long("output")
-                        .value_name("PATH")
-                        .help("The output name of en(de)crypted file. \nSupported fields: [index, filename]\n[ default:\n\tencrypt: crypted/{{index}}.ci\n\tdecrypt: output/{{filename}}\n]")
-                        .takes_value(true)
-                        .default_value("")
-                        .hide_default_value(true)
-                )
-                .arg(
-                    Arg::with_name("decrypt")
-                        .short("d")
-                        .long("decrypt")
-                        .help("Specify to decrypt file."),
-                )
-                .arg(
-                    Arg::with_name("parallels")
-                        .short("j")
-                        .long("parallels")
-                        .default_value(&cpus)
-                        .help("Number of parallel jobs."),
-                )
-                .arg(
-                    Arg::with_name("silent")
-                        .short("s")
-                        .long("silent")
-                        .help("specify to hide progress bar"),
-                )
-                .arg(
-                    Arg::with_name("list-name")
-                        .short("l")
-                        .long("list-name")
-                        .help("only show file name when decrypting")
-                )
-        )
-    }
+#[derive(Parser)]
+#[command(
+    name = "Crupter",
+    author = "Miguel Chan <i@miguch.com>",
+    about = "An easy tool for file hash and encryption",
+    subcommand_required = true
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
 
-    let matches = app.get_matches();
+#[derive(Subcommand)]
+enum Command {
+    /// Get md5 checksum
+    #[command(name = "md5")]
+    Md5(HashArgs),
+    /// Get sha1 checksum
+    #[command(name = "sha1")]
+    Sha1(HashArgs),
+    /// Get sha2-224 checksum
+    #[command(name = "sha2-224")]
+    Sha2224(HashArgs),
+    /// Get sha2-256 checksum
+    #[command(name = "sha2-256")]
+    Sha2256(HashArgs),
+    /// Get sha2-384 checksum
+    #[command(name = "sha2-384")]
+    Sha2384(HashArgs),
+    /// Get sha2-512 checksum
+    #[command(name = "sha2-512")]
+    Sha2512(HashArgs),
+    /// Get sha3-224 checksum
+    #[command(name = "sha3-224")]
+    Sha3224(HashArgs),
+    /// Get sha3-256 checksum
+    #[command(name = "sha3-256")]
+    Sha3256(HashArgs),
+    /// Get sha3-384 checksum
+    #[command(name = "sha3-384")]
+    Sha3384(HashArgs),
+    /// Get sha3-512 checksum
+    #[command(name = "sha3-512")]
+    Sha3512(HashArgs),
+    /// Encrypt file with aes-128
+    #[command(name = "aes-128")]
+    Aes128(CipherArgs),
+    /// Encrypt file with aes-192
+    #[command(name = "aes-192")]
+    Aes192(CipherArgs),
+    /// Encrypt file with aes-256
+    #[command(name = "aes-256")]
+    Aes256(CipherArgs),
+}
 
-    // iterate through all actions to find what to do
-    for action in config.checksums.iter().chain(config.ciphers.iter()) {
-        if let Some(matches) = matches.subcommand_matches(&action.name) {
-            if let Err(error) = (action.handler)(matches) {
-                writeln!(&mut std::io::stderr(), "{}", error).unwrap()
-            }
-            break;
-        }
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let result = match cli.command {
+        Command::Md5(args) => handlers::md5_handler(args),
+        Command::Sha1(args) => handlers::sha1_handler(args),
+        Command::Sha2224(args) => handlers::sha2_224_handler(args),
+        Command::Sha2256(args) => handlers::sha2_256_handler(args),
+        Command::Sha2384(args) => handlers::sha2_384_handler(args),
+        Command::Sha2512(args) => handlers::sha2_512_handler(args),
+        Command::Sha3224(args) => handlers::sha3_224_handler(args),
+        Command::Sha3256(args) => handlers::sha3_256_handler(args),
+        Command::Sha3384(args) => handlers::sha3_384_handler(args),
+        Command::Sha3512(args) => handlers::sha3_512_handler(args),
+        Command::Aes128(args) => handlers::aes_128_handler(args),
+        Command::Aes192(args) => handlers::aes_192_handler(args),
+        Command::Aes256(args) => handlers::aes_256_handler(args),
+    };
+    if let Err(ref e) = result {
+        writeln!(&mut std::io::stderr(), "{}", e).unwrap();
     }
-    Ok(())
+    result
 }

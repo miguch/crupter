@@ -1,45 +1,40 @@
 use digest::Digest;
-use generic_array::GenericArray;
 use std::io::Read;
 
 pub trait Hasher {
     type OutputArray;
-    /// Produce a hash result from a reader(stdin, file, ...)
-    fn from_reader<R: Read>(self, reader: R) -> Result<Self::OutputArray, failure::Error>;
+    fn from_reader<R: Read>(self, reader: R) -> Result<Self::OutputArray, anyhow::Error>;
 }
 
 impl<D: Digest> Hasher for D {
-    type OutputArray = GenericArray<u8, D::OutputSize>;
+    type OutputArray = digest::Output<D>;
 
-    fn from_reader<R: Read>(mut self, mut reader: R) -> Result<Self::OutputArray, failure::Error> {
-        // Use a 10mb buffer
+    fn from_reader<R: Read>(mut self, mut reader: R) -> Result<Self::OutputArray, anyhow::Error> {
         let mut buffer = vec![0; 10485760];
         loop {
             let read_bytes = reader.read(&mut buffer)?;
             if read_bytes == 0 {
                 break;
             } else {
-                self.input(&buffer[..read_bytes]);
+                Digest::update(&mut self, &buffer[..read_bytes]);
             }
         }
-        Ok(self.result())
+        Ok(self.finalize())
     }
 }
 
 pub trait PDHasher {
-    /// Consume buffer
     fn consume(&mut self, buf: &[u8]);
-    /// output result
-    fn produce(self: Box<Self>) -> Result<String, failure::Error>;
+    fn produce(self: Box<Self>) -> Result<String, anyhow::Error>;
 }
 
 impl<D: Digest> PDHasher for D {
     fn consume(&mut self, buf: &[u8]) {
-        self.input(buf)
+        Digest::update(self, buf)
     }
-    fn produce(self: Box<Self>) -> Result<String, failure::Error> {
+    fn produce(self: Box<Self>) -> Result<String, anyhow::Error> {
         use std::fmt::Write;
-        let hash = self.result();
+        let hash = self.finalize();
         let mut result = String::new();
         for byte in hash.as_slice() {
             write!(&mut result, "{:x}", byte)?;

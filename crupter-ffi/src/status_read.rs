@@ -11,28 +11,20 @@ pub struct FinishedInfo {
 pub enum ReadItem {
     File(FileRead),
     Done(FinishedInfo),
-    /// Name and reason to fail
-    Failed(String, failure::Error),
+    Failed(String, anyhow::Error),
 }
 
 pub enum ReadState {
     Going,
     Finished,
-    // IO error
     Error(std::io::ErrorKind, String),
 }
 
-/// A Read with progress status info
 pub struct StatusRead<R: Read> {
-    /// Underlying Read Object
-    inner: R,
-    /// Total bytes to read
+    pub inner: R,
     pub bytes: u64,
-    /// Current bytes have been read
     pub current: u64,
-    /// Current state of reader
     pub state: ReadState,
-    /// The name(filename) for the reader
     pub name: String,
 }
 
@@ -53,7 +45,7 @@ impl ReadItem {
 }
 
 impl FileRead {
-    pub fn from_file_path<P: AsRef<std::path::Path>>(path: P) -> Result<Self, failure::Error> {
+    pub fn from_file_path<P: AsRef<std::path::Path>>(path: P) -> Result<Self, anyhow::Error> {
         let file = std::fs::File::open(&path).map_err(|err| ReadError::OpenFileError { err })?;
         let filename = path.as_ref().file_name().unwrap();
         let meta = file
@@ -77,7 +69,7 @@ impl FileRead {
 impl<R: Read> Read for StatusRead<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         if let ReadState::Error(kind, err) = &self.state {
-            Err(std::io::Error::new(*kind, err.as_str()))?
+            Err(std::io::Error::new(*kind, err.as_str()))?;
         }
         let read_size = self.inner.read(buf).map_err(|err| {
             self.state = ReadState::Error(err.kind(), err.to_string());

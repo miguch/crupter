@@ -3,28 +3,27 @@ use hasher::PDHasher;
 use libc::c_char;
 use rayon::prelude::*;
 use std::ffi::{CStr, CString};
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
 use std::io::Read;
+use std::path::PathBuf;
+use std::sync::{Arc, LazyLock, Mutex, RwLock};
 
 use crate::status_info::StatusInfo;
 use crate::status_read::{FinishedInfo, ReadItem};
 
-lazy_static! {
-    static ref HASH_METHODS: RwLock<Vec<(&'static str, bool)>> = {
-        RwLock::new(
-            vec![
-                "md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha3-224", "sha3-256",
-                "sha3-384", "sha3-512",
-            ]
-            .iter()
-            .map(|name| (*name, true))
-            .collect(),
-        )
-    };
-    static ref HASH_FILES: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
-    static ref HASH_PROGRESS: Mutex<Vec<Arc<RwLock<ReadItem>>>> = Mutex::new(Vec::new());
-}
+static HASH_METHODS: LazyLock<RwLock<Vec<(&'static str, bool)>>> = LazyLock::new(|| {
+    RwLock::new(
+        vec![
+            "md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha3-224", "sha3-256",
+            "sha3-384", "sha3-512",
+        ]
+        .iter()
+        .map(|name| (*name, true))
+        .collect(),
+    )
+});
+static HASH_FILES: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+static HASH_PROGRESS: LazyLock<Mutex<Vec<Arc<RwLock<ReadItem>>>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
 
 struct Hashes {
     names: Vec<&'static str>,
@@ -55,18 +54,14 @@ impl Hashes {
                 });
             }
         }
-        Self {
-            names,
-            hashers,
-        }
+        Self { names, hashers }
     }
 
-    pub fn consume(&mut self, reader: Arc<RwLock<ReadItem>>) -> Result<(), failure::Error> {
-        // Use a 10mb buffer
+    pub fn consume(&mut self, reader: Arc<RwLock<ReadItem>>) -> Result<(), anyhow::Error> {
         let mut buffer = vec![0; 10485760];
         loop {
             let mut read_guard = reader.write().unwrap();
-            if let &mut ReadItem::File(ref mut reader) = &mut *read_guard {
+            if let ReadItem::File(ref mut reader) = *read_guard {
                 let read_bytes = reader.read(&mut buffer)?;
                 if read_bytes == 0 {
                     break;
@@ -127,7 +122,6 @@ pub extern "C" fn get_hash_files_num() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn run_hash_session() {
-    // non-blocking
     std::thread::spawn(move || {
         let files = HASH_FILES.lock().unwrap();
         let progresses: Vec<_> = files
@@ -167,8 +161,7 @@ pub extern "C" fn run_hash_session() {
 pub extern "C" fn get_hash_file(index: u32) -> *mut c_char {
     let files = HASH_FILES.lock().unwrap();
     let val = CString::new(files[index as usize].to_string_lossy().into_owned()).unwrap();
-    let ptr = val.into_raw();
-    ptr
+    val.into_raw()
 }
 
 #[no_mangle]

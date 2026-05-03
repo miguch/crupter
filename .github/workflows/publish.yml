@@ -7,16 +7,10 @@ on:
 
 jobs:
   publish:
-    name: Publish for ${{ matrix.os }}
+    name: Publish for ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        name: [
-            linux,
-            windows,
-            macos
-        ]
-
         include:
           - name: linux
             os: ubuntu-latest
@@ -27,41 +21,38 @@ jobs:
             artifact_name: target/release/crupter.exe
             asset_name: crupter-windows
           - name: macos
-            os: macos-latest
+            os: macOS-latest
             artifact_name: target/release/crupter
             asset_name: crupter-macos-intel
 
     steps:
-    - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Build
-      run: cargo build --release --locked
+      - name: Build
+        run: cargo build --release --locked
 
-    - name: Upload binaries to release
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ matrix.asset_name }}
-        path: ${{ matrix.artifact_name }}
+      - name: Upload binaries to release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.artifact_name }}
 
-    - name: Add Apple Silicon target
-      if: matrix.os == 'macOS-latest'
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: aarch64-apple-darwin
+      - name: Add Apple Silicon target
+        if: matrix.name == 'macos'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
 
-    - name: Build for Apple Silicon
-      if: matrix.os == 'macOS-latest'
-      run: cargo build --release --locked --target aarch64-apple-darwin
+      - name: Build for Apple Silicon
+        if: matrix.name == 'macos'
+        run: cargo build --release --locked --target aarch64-apple-darwin
 
-    - name: Upload Apple Silicon binary
-      uses: actions/upload-artifact@v2
-      if: matrix.os == 'macOS-latest'
-      with:
-        name: crupter-macos-arm
-        path: target/aarch64-apple-darwin/release/crupter
+      - name: Upload Apple Silicon binary
+        uses: actions/upload-artifact@v4
+        if: matrix.name == 'macos'
+        with:
+          name: crupter-macos-arm
+          path: target/aarch64-apple-darwin/release/crupter

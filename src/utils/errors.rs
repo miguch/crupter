@@ -1,31 +1,31 @@
-use failure::Fail;
+use thiserror::Error;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ReadError {
-    #[fail(display = "open file error: {}", err)]
+    #[error("open file error: {err}")]
     OpenFileError { err: std::io::Error },
-    #[fail(display = "can not read metadata: {}", err)]
+    #[error("can not read metadata: {err}")]
     MetadataError { err: std::io::Error },
-    #[fail(display = "is not file")]
+    #[error("is not file")]
     NotFileError,
-    #[fail(display = "fail to create directory {}: {}", dir, err)]
+    #[error("fail to create directory {dir}: {err}")]
     CreateDirError { dir: String, err: std::io::Error },
-    #[fail(display = "fail to find home directory")]
+    #[error("fail to find home directory")]
     NoHomeDir,
-    #[fail(display = "fail to read directory {}: {}", dir, err)]
+    #[error("fail to read directory {dir}: {err}")]
     ReadDirError { dir: String, err: std::io::Error },
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum MustacheError {
-    #[fail(display = "mustache compile: {}", msg)]
+    #[error("mustache compile: {msg}")]
     CompileError { msg: String },
-    #[fail(display = "mustache render cannot find field: {}", missing_field)]
+    #[error("mustache render cannot find field: {missing_field}")]
     DataNotFoundError { missing_field: String },
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum CipherError {
-    #[fail(display = "password validation fail")]
+    #[error("password validation fail")]
     PasswordError,
 }

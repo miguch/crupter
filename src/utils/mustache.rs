@@ -1,7 +1,7 @@
 use crate::utils::errors::MustacheError;
-use lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Basic components of mustache expression
 #[derive(Debug)]
@@ -30,10 +30,9 @@ impl Token {
 
 pub type MustacheExp = Vec<Token>;
 
-pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, failure::Error> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"\{\{\s*[\w\.]+\s*\}\}").unwrap();
-    }
+pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, anyhow::Error> {
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\{\{\s*[\w\.]+\s*\}\}").unwrap());
     let matches = RE.find_iter(exp);
     let mut last_index = 0;
     let mut expression = MustacheExp::new();
@@ -59,7 +58,7 @@ pub fn compile_mustache(exp: &str, allow_no_var: bool) -> Result<MustacheExp, fa
     Ok(expression)
 }
 
-pub fn render(exp: &MustacheExp, data: &HashMap<&str, String>) -> Result<String, failure::Error> {
+pub fn render(exp: &MustacheExp, data: &HashMap<&str, String>) -> Result<String, anyhow::Error> {
     let mut result = String::new();
     for token in exp {
         result.push_str(match token {

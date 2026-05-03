@@ -1,22 +1,18 @@
-#[macro_use]
-extern crate lazy_static;
 use libc::c_char;
-use status_read::ReadItem;
 use std::ffi::CString;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, RwLock};
 
 mod hash;
 mod status_info;
 mod status_read;
 
-pub use hash::*;
 use status_info::StatusInfo;
+use status_read::ReadItem;
 
-lazy_static! {
-    static ref CIPHER_FILES: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
-    static ref CIPHER_PROGRESS: Mutex<Vec<Arc<RwLock<ReadItem>>>> = Mutex::new(Vec::new());
-}
+static CIPHER_FILES: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+static CIPHER_PROGRESS: LazyLock<Mutex<Vec<Arc<RwLock<ReadItem>>>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
 
 #[no_mangle]
 pub unsafe extern "C" fn free_status_info(item: StatusInfo) {

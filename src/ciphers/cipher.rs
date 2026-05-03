@@ -1,37 +1,36 @@
 use crate::ciphers::passphrase;
 use crate::utils::errors::CipherError;
 use crate::utils::mustache;
-use generic_array::typenum::Unsigned;
+use ctr::cipher::typenum::Unsigned;
+use ctr::cipher::{KeyIvInit, StreamCipher};
 use mustache::MustacheExp;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use ofb::cipher::{NewCipher, StreamCipher};
 
 pub trait CrupterCipher {
-    fn apply<R: Read, W: Write>(&mut self, reader: R, writer: W) -> Result<usize, failure::Error>;
+    fn apply<R: Read, W: Write>(&mut self, reader: R, writer: W) -> Result<usize, anyhow::Error>;
     fn encrypt_file<P: AsRef<Path>, R: Read>(
         self,
         file_reader: R,
         file_name: &str,
         out_name: P,
         password: &str,
-    ) -> Result<PathBuf, failure::Error>;
+    ) -> Result<PathBuf, anyhow::Error>;
     fn decrypt_file<R: Read>(
         self,
         file_reader: R,
         out_name_template: &MustacheExp,
         password: &str,
         name_only: bool,
-    ) -> Result<PathBuf, failure::Error>;
+    ) -> Result<PathBuf, anyhow::Error>;
 }
 
-impl<S: NewCipher + StreamCipher> CrupterCipher for S {
+impl<S: KeyIvInit + StreamCipher> CrupterCipher for S {
     fn apply<R: Read, W: Write>(
         &mut self,
         mut reader: R,
         mut writer: W,
-    ) -> Result<usize, failure::Error> {
-        // Use a 10mb buffer
+    ) -> Result<usize, anyhow::Error> {
         let mut buffer = vec![0; 10485760];
         let mut total_bytes = 0;
         loop {
@@ -51,7 +50,7 @@ impl<S: NewCipher + StreamCipher> CrupterCipher for S {
         file_name: &str,
         out_name: P,
         password: &str,
-    ) -> Result<PathBuf, failure::Error> {
+    ) -> Result<PathBuf, anyhow::Error> {
         let mut hashed_pwd = passphrase::get_hashed_pwd(password);
         self.apply_keystream(&mut hashed_pwd);
 
@@ -60,23 +59,19 @@ impl<S: NewCipher + StreamCipher> CrupterCipher for S {
         out_buf.write_all(&hashed_pwd)?;
 
         let (mut key, mut iv) = passphrase::generate_var::<Self>();
-        // Use a random cipher to encrypt file
         let mut file_cipher = Self::new_from_slices(&key, &iv).unwrap();
         self.apply_keystream(&mut key);
         self.apply_keystream(&mut iv);
-        // Save random cipher key and iv
         out_buf.write_all(&key)?;
         out_buf.write_all(&iv)?;
 
         let mut file_header = Vec::<u8>::with_capacity(file_name.len() + 4);
-        // 4 bytes to indicate file name length
         file_header.extend(&(file_name.len() as u32).to_le_bytes());
         file_header.extend(file_name.as_bytes());
 
         file_cipher.apply_keystream(&mut file_header);
         out_buf.write_all(&file_header)?;
 
-        // Encrypt the whole file
         file_cipher.apply(file_reader, out_buf)?;
 
         Ok(PathBuf::from(out_name.as_ref()))
@@ -87,22 +82,19 @@ impl<S: NewCipher + StreamCipher> CrupterCipher for S {
         out_name_template: &MustacheExp,
         password: &str,
         name_only: bool,
-    ) -> Result<PathBuf, failure::Error> {
-        // Validate with passphrase hash
+    ) -> Result<PathBuf, anyhow::Error> {
         let mut hashed_pwd = vec![0; passphrase::HASHED_PWD_LENGTH];
         file_reader.read_exact(&mut hashed_pwd)?;
         self.apply_keystream(&mut hashed_pwd);
         if !passphrase::validate(password, &hashed_pwd) {
             Err(CipherError::PasswordError)?;
         }
-        //Get encrypted key & iv
         let key_len = S::KeySize::to_usize();
-        let iv_len = S::NonceSize::to_usize();
+        let iv_len = S::IvSize::to_usize();
         let mut key_iv = vec![0; key_len + iv_len];
         file_reader.read_exact(&mut key_iv)?;
         self.apply_keystream(&mut key_iv);
         let mut file_cipher = Self::new_from_slices(&key_iv[..key_len], &key_iv[key_len..]).unwrap();
-        // Get filename
         let mut filename_len_buf = [0; 4];
         file_reader.read_exact(&mut filename_len_buf)?;
         file_cipher.apply_keystream(&mut filename_len_buf);
