@@ -12,10 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release --locked
+      - run: cp target/release/crupter crupter-linux-x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: crupter-linux-x86_64
-          path: target/release/crupter
+          path: crupter-linux-x86_64
 
   build-windows:
     runs-on: windows-latest
@@ -23,10 +24,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release --locked
+      - run: cp target/release/crupter.exe crupter-windows-x86_64.exe
       - uses: actions/upload-artifact@v4
         with:
           name: crupter-windows-x86_64
-          path: target/release/crupter.exe
+          path: crupter-windows-x86_64.exe
 
   build-macos:
     runs-on: macos-latest
@@ -37,14 +39,16 @@ jobs:
           targets: x86_64-apple-darwin,aarch64-apple-darwin
       - run: cargo build --release --locked --target x86_64-apple-darwin
       - run: cargo build --release --locked --target aarch64-apple-darwin
+      - run: cp target/x86_64-apple-darwin/release/crupter crupter-macos-x86_64
+      - run: cp target/aarch64-apple-darwin/release/crupter crupter-macos-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: crupter-macos-x86_64
-          path: target/x86_64-apple-darwin/release/crupter
+          path: crupter-macos-x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: crupter-macos-arm64
-          path: target/aarch64-apple-darwin/release/crupter
+          path: crupter-macos-arm64
 
   release:
     needs: [build-linux, build-windows, build-macos]
@@ -59,7 +63,7 @@ jobs:
       - uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/crupter-linux-x86_64/crupter
-            artifacts/crupter-windows-x86_64/crupter.exe
-            artifacts/crupter-macos-x86_64/crupter
-            artifacts/crupter-macos-arm64/crupter
+            artifacts/crupter-linux-x86_64/crupter-linux-x86_64
+            artifacts/crupter-windows-x86_64/crupter-windows-x86_64.exe
+            artifacts/crupter-macos-x86_64/crupter-macos-x86_64
+            artifacts/crupter-macos-arm64/crupter-macos-arm64
