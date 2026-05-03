@@ -6,53 +6,60 @@ on:
       - '*'
 
 jobs:
-  publish:
-    name: Publish for ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - name: linux
-            os: ubuntu-latest
-            artifact_name: target/release/crupter
-            asset_name: crupter-linux
-          - name: windows
-            os: windows-latest
-            artifact_name: target/release/crupter.exe
-            asset_name: crupter-windows
-          - name: macos
-            os: macOS-latest
-            artifact_name: target/release/crupter
-            asset_name: crupter-macos-intel
-
+  build-linux:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build
-        run: cargo build --release --locked
-
-      - name: Upload binaries to release
-        uses: actions/upload-artifact@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset_name }}
-          path: ${{ matrix.artifact_name }}
+          name: crupter-linux-x86_64
+          path: target/release/crupter
 
-      - name: Add Apple Silicon target
-        if: matrix.name == 'macos'
-        uses: dtolnay/rust-toolchain@stable
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
         with:
-          targets: aarch64-apple-darwin
+          name: crupter-windows-x86_64
+          path: target/release/crupter.exe
 
-      - name: Build for Apple Silicon
-        if: matrix.name == 'macos'
-        run: cargo build --release --locked --target aarch64-apple-darwin
-
-      - name: Upload Apple Silicon binary
-        uses: actions/upload-artifact@v4
-        if: matrix.name == 'macos'
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          name: crupter-macos-arm
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+      - run: cargo build --release --locked --target x86_64-apple-darwin
+      - run: cargo build --release --locked --target aarch64-apple-darwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crupter-macos-x86_64
+          path: target/x86_64-apple-darwin/release/crupter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crupter-macos-arm64
           path: target/aarch64-apple-darwin/release/crupter
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - run: ls -R artifacts
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/crupter-linux-x86_64/crupter
+            artifacts/crupter-windows-x86_64/crupter.exe
+            artifacts/crupter-macos-x86_64/crupter
+            artifacts/crupter-macos-arm64/crupter

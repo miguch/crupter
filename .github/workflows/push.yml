@@ -2,30 +2,18 @@ name: Crupter Build on Push
 on: [push, pull_request]
 
 jobs:
-  testBuildStatus:
-    name: Test Build Status
+  build:
+    name: Build ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macOS-latest, ubuntu-latest]
-        include:
-          - os: macOS-latest
-            target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          fetch-depth: 1
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target && format('{0}', matrix.target) }}
-      - name: Build (default target)
-        run: cargo build --release --verbose
-      - name: Add Apple Silicon target
+          targets: x86_64-apple-darwin
+      - run: cargo build --release --verbose
+      - name: Build (Intel Mac)
         if: matrix.os == 'macOS-latest'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-      - name: Build (Apple Silicon)
-        if: matrix.os == 'macOS-latest'
-        run: cargo build --release --verbose --target aarch64-apple-darwin
+        run: cargo build --release --verbose --target x86_64-apple-darwin
